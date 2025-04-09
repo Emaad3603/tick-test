@@ -113,22 +113,6 @@ class TemplateService
         }
     }
 
-    public function updateTemplate(Request $request, $uuid)
-    {
-        
-        $validator = Validator::make($request->all(),[
-            'name' => 'required',
-            'category' => 'required',
-            'language' => 'required',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false,'message'=>'Some required fields have not been filled','errors'=>$validator->messages()->get('*')]);
-        }
-
-        return $this->whatsappService->updateTemplate($request, $uuid);
-    }
-
     public function deleteTemplate($uuid)
     {
         $query = $this->whatsappService->deleteTemplate($uuid);

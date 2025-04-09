@@ -12,6 +12,9 @@ class Campaign extends Model {
     use HasUuid;
 
     protected $guarded = [];
+    protected $fillable = [
+        'event_id',
+    ];
     public $timestamps = false;
 
     public function getCreatedAtAttribute($value)
@@ -106,5 +109,10 @@ class Campaign extends Model {
             ->leftJoin('chats as chat', 'chat.id', '=', 'campaign_logs.chat_id')
             ->where('campaign_logs.campaign_id', $this->id)
             ->first();
+    }
+
+    public function event()
+    {
+        return $this->belongsTo(Event::class, 'event_id', 'event_id');
     }
 }

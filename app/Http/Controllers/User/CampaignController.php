@@ -12,6 +12,7 @@ use App\Models\CampaignLog;
 use App\Models\ContactGroup;
 use App\Models\Organization;
 use App\Models\Template;
+use App\Models\Event;
 use App\Services\CampaignService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,8 @@ class CampaignController extends BaseController
             $data['contactGroups'] = ContactGroup::where('organization_id', $organizationId)
                 ->where('deleted_at', null)
                 ->get();
+
+            $data['events'] = Event::orderBy('event_date', 'desc')->get();
 
             $data['title'] = __('Create campaign');
 

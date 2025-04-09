@@ -1,12 +1,11 @@
 <?php
 
-use App\Jobs\CreateCampaignLogsJob;
-use App\Jobs\ProcessCampaignMessagesJob;
 use App\Models\Language;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
+use App\Http\Controllers\EventController;
 
 /*
 |--------------------------------------------------------------------------
@@ -107,7 +106,6 @@ Route::middleware(['auth:user'])->group(function () {
 
     Route::group(['middleware' => ['check.email.verification']], function () {
         Route::get('/select-organization', [App\Http\Controllers\User\OrganizationController::class, 'index'])->name('user.organization.index');
-        Route::post('/select-organization', [App\Http\Controllers\User\OrganizationController::class, 'selectOrganization'])->name('user.organization.selectOrganization');
         Route::post('/organization', [App\Http\Controllers\User\OrganizationController::class, 'store'])->name('user.organization.store');
 
         Route::group(['middleware' => ['check.organization']], function () {
@@ -167,16 +165,6 @@ Route::middleware(['auth:user'])->group(function () {
                 Route::get('/automation/basic/{uuid}/edit', [App\Http\Controllers\User\CannedReplyController::class, 'edit'])->name('cannedReply.edit');
                 Route::put('/automation/basic/{uuid}', [App\Http\Controllers\User\CannedReplyController::class, 'update'])->name('cannedReply.update');
                 Route::delete('/automation/basic/{uuid}', [App\Http\Controllers\User\CannedReplyController::class, 'delete'])->name('cannedReply.destroy');
-
-                
-                Route::prefix('events')->group(function () {
-                Route::get('/', [EventController::class, 'index']);
-                Route::post('/', [EventController::class, 'store']);
-                Route::put('/{id}', [EventController::class, 'update']); 
-                Route::delete('/{id}', [EventController::class, 'destroy']);
-                });
-                
-                
 
                 Route::get('/support/{uuid?}', [App\Http\Controllers\User\TicketController::class, 'index'])->name('support');
                 Route::post('/support', [App\Http\Controllers\User\TicketController::class, 'store']);
@@ -291,3 +279,8 @@ Route::prefix('admin')->middleware(['auth:admin'])->group(function () {
     Route::get('/user-logs/notifications', [App\Http\Controllers\Admin\NotificationController::class, 'index']);
     Route::get('/user-logs/emails', [App\Http\Controllers\Admin\EmailLogController::class, 'index']);
 });
+
+// Event Routes
+Route::resource('events', EventController::class);
+Route::post('events/{event}/import-contacts', [EventController::class, 'importContacts'])->name('events.import-contacts');
+Route::get('event/{event}/{name}/ticket', [EventController::class, 'showTicket'])->name('event.ticket');

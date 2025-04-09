@@ -32,13 +32,8 @@ class DashboardController extends BaseController
         $data['subscription'] = Subscription::with('plan')->where('organization_id', $organizationId)->first();
         $data['subscriptionDetails'] = SubscriptionService::calculateSubscriptionBillingDetails($organizationId, $data['subscription']->plan_id);
         $data['subscriptionIsActive'] = SubscriptionService::isSubscriptionActive($organizationId);
-        $data['chatCount'] = Chat::where('organization_id', $organizationId)
-            ->whereNull('deleted_at')
-            ->whereHas('contact', function ($query) {
-                $query->whereNull('deleted_at');
-            })
-            ->count();
-        $data['campaignCount'] = Campaign::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
+        $data['chatCount'] = Chat::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
+        $data['campaignCount'] = Campaign::where('organization_id', $organizationId)->count();
         $data['contactCount'] = Contact::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
         $data['templateCount'] = Template::where('organization_id', $organizationId)->whereNull('deleted_at')->count();
         $data['graphAPIVersion'] = config('graph.api_version');

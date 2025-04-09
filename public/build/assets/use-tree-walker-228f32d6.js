@@ -1,1 +1,0 @@
-import{m as f}from"./hidden-7c22a505.js";import{S as d}from"./app-c050892b.js";function m({container:e,accept:r,walk:n,enabled:t}){d(()=>{let a=e.value;if(!a||t!==void 0&&!t.value)return;let c=f(e);if(!c)return;let l=Object.assign(i=>r(i),{acceptNode:r}),o=c.createTreeWalker(a,NodeFilter.SHOW_ELEMENT,l,!1);for(;o.nextNode();)n(o.currentNode)})}export{m as p};

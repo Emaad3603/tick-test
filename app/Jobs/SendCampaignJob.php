@@ -25,7 +25,6 @@ class SendCampaignJob implements ShouldQueue
 
     private $organizationId;
     private $whatsappService;
-    private $batchSize;
 
     public function handle()
     {
@@ -145,43 +144,18 @@ class SendCampaignJob implements ShouldQueue
 
     protected function processPendingCampaignLogs(Campaign $campaign)
     {
-        $pendingLogs = CampaignLog::where('campaign_id', $campaign->id)
-            ->where('status', 'pending')
-            ->with('contact')
-            ->limit($this->batchSize)
-            ->get();
-
-        foreach ($pendingLogs as $log) {
-            try {
-                $contact = $log->contact;
-                $metadata = json_decode($campaign->metadata, true);
-                
-                // Generate dynamic ticket URL
-                $ticketUrl = route('api.ticket.generate', [
-                    'ticket_id' => $metadata['ticket_prefix'] . '-' . substr(preg_replace('/[^0-9]/', '', $contact->phone), -6) . '-' . time(),
-                    'contact' => $contact->uuid,
-                    'campaign' => $campaign->uuid
-                ]);
-                
-                // Replace any static ticket URL in the template with the dynamic one
-                if (isset($metadata['buttons'])) {
-                    foreach ($metadata['buttons'] as &$button) {
-                        if (isset($button['parameters'])) {
-                            foreach ($button['parameters'] as &$param) {
-                                if (strpos($param['value'], 'ticket_url') !== false) {
-                                    $param['value'] = $ticketUrl;
-                                }
-                            }
-                        }
+        CampaignLog::with('campaign', 'contact')
+            ->where('campaign_id', $campaign->id)
+            ->where('status', '=', 'pending')
+            ->chunk(500, function ($pendingCampaignLogs) {
+                foreach ($pendingCampaignLogs as $campaignLog) {
+                    // Skip if the log is already being processed or processed
+                    if ($campaignLog->status === 'ongoing' || $campaignLog->status === 'success') {
+                        continue;
                     }
+                    $this->sendTemplateMessage($campaignLog);
                 }
-                
-                $this->whatsappService->sendTemplate($contact->uuid, $campaign->template_id, $metadata);
-                $log->update(['status' => 'sent']);
-            } catch (\Exception $e) {
-                $log->update(['status' => 'failed', 'error' => $e->getMessage()]);
-            }
-        }
+            });
     }
 
     protected function hasPendingCampaignLogs(Campaign $campaign)
@@ -189,6 +163,48 @@ class SendCampaignJob implements ShouldQueue
         return CampaignLog::where('status', 'pending')
             ->where('campaign_id', $campaign->id)
             ->exists();
+    }
+
+    protected function sendTemplateMessage(CampaignLog $campaignLog)
+    {
+        DB::transaction(function() use ($campaignLog) {
+            //Update log to ongoing, prevents this message from being sent out again
+            $log = CampaignLog::where('id', $campaignLog->id)
+                              ->where('status', 'pending') // Make sure the log is still pending
+                              ->lockForUpdate()
+                              ->first();
+                   
+            if ($log) {     
+                $campaign_user_id = Campaign::find($log->campaign_id)?->created_by;    
+                $log->status = 'ongoing';
+                $log->save();
+        
+                //Set Organization Id & initialize whatsapp service
+                $this->organizationId = $campaignLog->campaign->organization_id;
+                $this->initializeWhatsappService();
+        
+                $template = $this->buildTemplateRequest($campaignLog->campaign_id, $campaignLog->contact);
+                $responseObject = $this->whatsappService->sendTemplateMessage($campaignLog->contact->uuid, $template, $campaign_user_id, $campaignLog->campaign_id);
+                //Log::info(json_encode($responseObject));
+                $this->updateCampaignLogStatus($campaignLog, $responseObject);
+            }
+        });
+    }
+
+    protected function updateCampaignLogStatus(CampaignLog $campaignLog, $responseObject)
+    {
+        $log = CampaignLog::find($campaignLog->id);
+
+        // Update campaign log status based on the response object
+        $log->chat_id = $responseObject->data->chat->id ?? null;
+        $log->status = ($responseObject->success === true) ? 'success' : 'failed';
+        unset($responseObject->success);
+        if (property_exists($responseObject, 'data') && property_exists($responseObject->data, 'chat')) {
+            unset($responseObject->data->chat);
+        }
+        $log->metadata = json_encode($responseObject);
+        $log->updated_at = now();
+        $log->save();
     }
 
     private function initializeWhatsappService()

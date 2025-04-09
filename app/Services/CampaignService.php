@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Illuminate\Validation\ValidationException;
 use Validator;
+use App\Models\Event;
 
 class CampaignService
 {
@@ -36,9 +37,10 @@ class CampaignService
 
         $template = Template::where('uuid', $request->template)->first();
         $contactGroup = ContactGroup::where('uuid', $request->contacts)->first();
+        $event = $request->event ? Event::find($request->event) : null;
 
         try {
-            DB::transaction(function () use ($request, $organizationId, $template, $contactGroup, $timezone) {
+            DB::transaction(function () use ($request, $organizationId, $template, $contactGroup, $event, $timezone) {
                 //Request metadata
                 $mediaId = null;
                 if(in_array($request->header['format'], ['IMAGE', 'DOCUMENT', 'VIDEO'])){
@@ -102,7 +104,6 @@ class CampaignService
                 $metadata['footer'] = $request->footer;
                 $metadata['buttons'] = $request->buttons;
                 $metadata['media'] = $mediaId;
-                $metadata['ticket_prefix'] = $request->ticket_prefix;
 
                 // Convert $request->time from organization's timezone to UTC
                 $scheduledAt = $request->skip_schedule ? Carbon::now('UTC') : Carbon::parse($request->time, $timezone)->setTimezone('UTC');
@@ -113,6 +114,7 @@ class CampaignService
                 $campaign['name'] = $request->name;
                 $campaign['template_id'] = $template->id;
                 $campaign['contact_group_id'] = $request->contacts === 'all' ? 0 : $contactGroup->id;
+                $campaign['event_id'] = $event ? $event->event_id : null;
                 $campaign['metadata'] = json_encode($metadata);
                 $campaign['created_by'] = auth()->user()->id;
                 $campaign['status'] = 'scheduled';

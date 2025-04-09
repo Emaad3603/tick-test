@@ -26,7 +26,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Propaganistas\LaravelPhone\PhoneNumber;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use App\Models\Campaign;
 
 class ApiController extends Controller
 {
@@ -654,33 +653,6 @@ class ApiController extends Controller
      */
     public function storeCampaign(Request $request){
         
-    }
-
-    public function generateTicket(Request $request, $campaignUuid, $contactUuid)
-    {
-        $campaign = Campaign::where('uuid', $campaignUuid)->firstOrFail();
-        $contact = Contact::where('uuid', $contactUuid)->firstOrFail();
-        
-        $metadata = json_decode($campaign->metadata, true);
-        $ticketPrefix = $metadata['ticket_prefix'] ?? 'TICKET';
-        
-        // Generate a unique ticket ID using the prefix, contact phone, and timestamp
-        $ticketId = $ticketPrefix . '-' . substr(preg_replace('/[^0-9]/', '', $contact->phone), -6) . '-' . time();
-        
-        // Generate the ticket URL using your native PHP controller
-        $ticketUrl = route('api.ticket.generate', [
-            'ticket_id' => $ticketId,
-            'contact' => $contactUuid,
-            'campaign' => $campaignUuid
-        ]);
-        
-        return response()->json([
-            'statusCode' => 200,
-            'data' => [
-                'ticket_url' => $ticketUrl,
-                'ticket_id' => $ticketId
-            ]
-        ]);
     }
 
     private function isWhatsAppConnected($organizationId){
